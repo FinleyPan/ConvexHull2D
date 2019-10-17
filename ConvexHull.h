@@ -22,7 +22,7 @@ public:
     bool ExpandAndUpdate(const VecType& vertex);
     bool ExpandAndUpdate(const std::vector<VecType>& vertices);
     VertexPosition LocateVertex(const VecType& vertex,float& distance) const;
-    inline const std::vector<VecType>& vertices() const {return vertices_;}
+    inline const std::vector<VecType>& contour() const {return contour_;}
 
 private:
     static bool Compare(const VecType& vert1, const VecType& vert2);
@@ -31,7 +31,7 @@ private:
     bool GrahamScan();
     double Cosine(const VecType& vert) const;
 
-    std::vector<VecType> vertices_;
+    std::vector<VecType> contour_;
     std::vector<double> polar_angles_;
     VecType base_axis_, centroid_;
 };
@@ -69,18 +69,18 @@ ConvexHull2D<T>::ConvexHull2D() {
 }
 
 template <typename T>
-ConvexHull2D<T>::ConvexHull2D(const std::vector<VecType>& vertices) : vertices_(vertices) {
-    auto end_unique = std::unique(vertices_.begin(),vertices_.end());
-    vertices_.erase(end_unique,vertices_.end());
+ConvexHull2D<T>::ConvexHull2D(const std::vector<VecType>& vertices) : contour_(vertices) {
+    auto end_unique = std::unique(contour_.begin(),contour_.end());
+    contour_.erase(end_unique,contour_.end());
 
-    if(vertices_.size() >= 3)
+    if(contour_.size() >= 3)
         GrahamScan();
     else
-        vertices_.clear();
+        contour_.clear();
 }
 
 template <typename T>
-ConvexHull2D<T>::ConvexHull2D(const ConvexHull2D<T>& right) : vertices_(right.vertices_),
+ConvexHull2D<T>::ConvexHull2D(const ConvexHull2D<T>& right) : contour_(right.contour_),
                        polar_angles_(right.polar_angles_), base_axis_(right.base_axis_) {
 
 }
@@ -88,7 +88,7 @@ ConvexHull2D<T>::ConvexHull2D(const ConvexHull2D<T>& right) : vertices_(right.ve
 template <typename T>
 ConvexHull2D<T>& ConvexHull2D<T>::operator=(const ConvexHull2D<T>& right) {
     if(this != &right) {
-        vertices_ = right.vertices_;
+        contour_ = right.contour_;
         polar_angles_ = right.polar_angles_;
         base_axis_ = right.base_axis_;
     }
@@ -102,7 +102,7 @@ ConvexHull2D<T>::~ConvexHull2D<T>() {
 
 template <typename T>
 bool ConvexHull2D<T>::ExpandAndUpdate(const VecType& vertex) {
-    if(vertices_.empty())
+    if(contour_.empty())
         return false;
     float distance;
     bool expanded;
@@ -113,7 +113,7 @@ bool ConvexHull2D<T>::ExpandAndUpdate(const VecType& vertex) {
         expanded = false;
         break;
     case kOutside:
-        vertices_.push_back(vertex);
+        contour_.push_back(vertex);
         GrahamScan();
         expanded = true;
         break;
@@ -124,14 +124,13 @@ bool ConvexHull2D<T>::ExpandAndUpdate(const VecType& vertex) {
 
 template <typename T>
 bool ConvexHull2D<T>::ExpandAndUpdate(const std::vector<VecType>& vertices) {
-    if(!vertices_.empty() || (vertices_.empty() && vertices.size() >= 3) ){
+    if(!contour_.empty() || (contour_.empty() && vertices.size() >= 3) ){
         for(const VecType& vert : vertices) {
-            vertices_.push_back(vert);
+            contour_.push_back(vert);
         }
-        auto end_unique = std::unique(vertices_.begin(),vertices_.end());
-        vertices_.erase(end_unique,vertices_.end());
-        if(vertices_.size() >= 3){
-            size_t ori_size = vertices_.size();
+        auto end_unique = std::unique(contour_.begin(),contour_.end());
+        contour_.erase(end_unique,contour_.end());
+        if(contour_.size() >= 3){
             return GrahamScan();
         }else
             return false;
@@ -153,60 +152,60 @@ bool ConvexHull2D<T>::GrahamScan() {
     //find base's index
     int index = 0;
     int top = 2;
-    for(int i=1; i<vertices_.size(); i++) {
-        if(vertices_[i].y < vertices_[index].y ||(vertices_[i].y == vertices_[index].y
-           && vertices_[i].x < vertices_[index].x))
+    for(int i=1; i<contour_.size(); i++) {
+        if(contour_[i].y < contour_[index].y ||(contour_[i].y == contour_[index].y
+           && contour_[i].x < contour_[index].x))
             index = i;
     }
 
-    std::swap(vertices_[0],vertices_[index]);
-    base = vertices_[0];
-    std::sort(vertices_.begin()+1,vertices_.end(),Compare);
+    std::swap(contour_[0],contour_[index]);
+    base = contour_[0];
+    std::sort(contour_.begin()+1,contour_.end(),Compare);
     for(int i=0; i<3; i++)
-        stack.push_back(vertices_[i]);
+        stack.push_back(contour_[i]);
 
-    for(int i=3 ; i<vertices_.size() ;i++) {
-        while (top > 0 && (vertices_[i]-stack[top-1]).cross(stack[top]-stack[top-1]) >=0)
+    for(int i=3 ; i<contour_.size() ;i++) {
+        while (top > 0 && (contour_[i]-stack[top-1]).cross(stack[top]-stack[top-1]) >=0)
         {
             --top;
             stack.pop_back();
         }
-        stack.push_back(vertices_[i]);
+        stack.push_back(contour_[i]);
         ++top;
     }
 
     if(stack.size() < 3) {
-        vertices_.clear();
+        contour_.clear();
         polar_angles_.clear();
         centroid_ = base_axis_ = VecType(0,0);
         base = VecType(0,0);
         return false;
     }
 
-    std::swap(vertices_,stack);
+    std::swap(contour_,stack);
     centroid_ = VecType(0,0);
-    base_axis_ = vertices_[1] - vertices_[0];
-    polar_angles_.resize(vertices_.size()-1, 1.0f);
+    base_axis_ = contour_[1] - contour_[0];
+    polar_angles_.resize(contour_.size()-1, 1.0f);
     int i = -1;
-    for(const VecType& vert : vertices_) {
+    for(const VecType& vert : contour_) {
         centroid_ += vert;
         if(++i > 1) {
             polar_angles_[i-1] = Cosine(vert);
         }
     }
-    centroid_ /= static_cast<double>(vertices_.size());
+    centroid_ /= static_cast<double>(contour_.size());
     return true;
 }
 
 template <typename T>
 typename ConvexHull2D<T>::VertexPosition
 ConvexHull2D<T>::LocateVertex(const VecType& vertex,float& distance) const{
-    VecType vec = vertex - vertices_.front();
-    VecType end_axis = vertices_.back() - vertices_.front();
+    VecType vec = vertex - contour_.front();
+    VecType end_axis = contour_.back() - contour_.front();
     double base2vec = base_axis_.cross(vec);
     double vec2end = vec.cross(end_axis);
     if(std::fabs(base2vec) < 1e-6) {
-        VecType vec1 = vertex - vertices_[1];
+        VecType vec1 = vertex - contour_[1];
         double dot_product = vec1.dot(vec);
         if(dot_product < 0 || std::fabs(dot_product) < 1e-6) {
             distance = 0.0f;
@@ -216,8 +215,8 @@ ConvexHull2D<T>::LocateVertex(const VecType& vertex,float& distance) const{
             return kOutside;
         }
     }else if(std::fabs(vec2end) < 1e-6) {
-        VecType vec1 = vertex - vertices_.rbegin()[0];
-        VecType vec2 = vertex - vertices_.rbegin()[1];
+        VecType vec1 = vertex - contour_.rbegin()[0];
+        VecType vec2 = vertex - contour_.rbegin()[1];
         double dot_product = vec1.dot(vec2);
         if(dot_product < 0 || std::fabs(dot_product) < 1e-6) {
             distance = 0.0f;
@@ -239,14 +238,14 @@ ConvexHull2D<T>::LocateVertex(const VecType& vertex,float& distance) const{
         }
         double a1,a2,b1,b2,c1,c2,det;
         VecType intersec;
-        SolveLine(vertex,vertices_.front(),a1,b1,c1);
-        SolveLine(vertices_[i+1],vertices_[i+2],a2,b2,c2);
+        SolveLine(vertex,contour_.front(),a1,b1,c1);
+        SolveLine(contour_[i+1],contour_[i+2],a2,b2,c2);
         det = a1 * b2 - a2 * b1;
         intersec.x = (c1*b2 - c2*b1) / det;
         intersec.y = (a1*c2 - a2*c1) / det;
 
         VecType vec1 = intersec - vertex;
-        VecType vec2 = intersec - vertices_.front();
+        VecType vec2 = intersec - contour_.front();
         double dot_product = vec1.dot(vec2);
         if(dot_product > 1e-6){
             distance = 0.0f;
